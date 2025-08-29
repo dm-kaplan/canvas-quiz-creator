@@ -117,12 +117,15 @@ Incorrect Feedback: You have one or more incorrect matches.
                 else if (line.trim().startsWith('// QUIZ DESCRIPTION:')) quiz.description = line.replace('// QUIZ DESCRIPTION:', '').trim();
             });
 
-            const questionBlocks = text.split(/\n\s*\n/).filter(block => block.trim() && !block.trim().startsWith('//'));
+            // --- THIS IS THE CORRECTED LINE ---
+            // It now keeps all non-empty blocks, and lets the parser logic below handle comments.
+            const questionBlocks = text.split(/\n\s*\n/).filter(block => block.trim());
 
             questionBlocks.forEach(block => {
                 const allLines = block.split('\n').filter(line => line.trim());
                 if (allLines.length === 0) return;
-
+                
+                // This block finds the first non-comment line to use as the question text.
                 let questionText = '';
                 let questionTextFound = false;
                 const question = { points: 1, data: [], correctFeedback: '', incorrectFeedback: '' };
@@ -131,17 +134,14 @@ Incorrect Feedback: You have one or more incorrect matches.
                 allLines.forEach(line => {
                     const trimmedLine = line.trim();
                     if (trimmedLine.startsWith('//')) {
-                        // This is metadata, parse it
                         if (trimmedLine.toLowerCase().startsWith('// points:')) {
                             question.points = parseInt(trimmedLine.substring(10).trim()) || 1;
                         }
                     } else if (!questionTextFound) {
-                        // This is the first non-comment line, it MUST be the question prompt
                         questionText = trimmedLine;
                         question.text = questionText;
                         questionTextFound = true;
                     } else {
-                        // The question has been found, so this must be an answer or feedback
                         if (trimmedLine.toLowerCase().startsWith('correct feedback:')) {
                             question.correctFeedback = trimmedLine.substring(17).trim();
                         } else if (trimmedLine.toLowerCase().startsWith('incorrect feedback:')) {
@@ -152,9 +152,10 @@ Incorrect Feedback: You have one or more incorrect matches.
                     }
                 });
                 
-                if (!question.text) return; // Skip blocks that contained only comments
+                // If a block only contained comments, it won't have question text. Skip it.
+                // This correctly handles the QUIZ TITLE block.
+                if (!question.text) return; 
 
-                // The rest of the question type detection logic...
                 if (answerLines.some(a => a.includes('->'))) {
                     question.type = 'matching_question';
                     question.data = answerLines.map((a, i) => {
@@ -216,13 +217,15 @@ Incorrect Feedback: You have one or more incorrect matches.
                 const quizId = quizResponse.id;
                 logMessage(`Success! Quiz shell created with ID: ${quizId}`, 'success');
 
-                logMessage('Step 2: Adding questions to the quiz...', 'step');
-                for (let i = 0; i < parsedQuiz.questions.length; i++) {
-                    const q = parsedQuiz.questions[i];
-                    logMessage(`Creating Question ${i + 1} (${q.type}) worth ${q.points} points...`);
-                    const questionPayload = buildQuestionPayload(q);
-                    await apiCall(`/api/v1/courses/${courseId}/quizzes/${quizId}/questions`, 'POST', apiToken, canvasUrl, { question: questionPayload });
-                    logMessage(`  -> Question ${i + 1} created successfully.`, 'success');
+                if (parsedQuiz.questions.length > 0) {
+                    logMessage('Step 2: Adding questions to the quiz...', 'step');
+                    for (let i = 0; i < parsedQuiz.questions.length; i++) {
+                        const q = parsedQuiz.questions[i];
+                        logMessage(`Creating Question ${i + 1} (${q.type}) worth ${q.points} points...`);
+                        const questionPayload = buildQuestionPayload(q);
+                        await apiCall(`/api/v1/courses/${courseId}/quizzes/${quizId}/questions`, 'POST', apiToken, canvasUrl, { question: questionPayload });
+                        logMessage(`  -> Question ${i + 1} created successfully.`, 'success');
+                    }
                 }
 
                 logMessage('------------------------------------', 'step');
