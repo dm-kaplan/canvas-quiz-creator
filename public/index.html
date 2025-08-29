@@ -48,6 +48,7 @@
                     <h3 class="font-semibold mb-2">Formatting Guide:</h3>
                     <ul class="list-disc list-inside space-y-1">
                         <li>Separate questions with a blank line. Use `//` for comments.</li>
+                        <li>**Points:** Use `// Points: 5` on its own line within a question block.</li>
                         <li>**Multiple Choice/Answers:** Start correct answer(s) with `*`.</li>
                         <li>**True/False:** Use `*True` or `*False` for the correct answer.</li>
                         <li>**Matching:** Use the format `[Prompt] -> Answer`.</li>
@@ -60,6 +61,7 @@
 // QUIZ DESCRIPTION: A quiz demonstrating multiple question types and feedback.
 
 // Question 1: Multiple Choice with Feedback
+// Points: 5
 What is the capital of Canada?
 a. Toronto
 b. Vancouver
@@ -68,6 +70,7 @@ Correct Feedback: That's right! Ottawa is the capital.
 Incorrect Feedback: Not quite. While Toronto is the largest city, Ottawa is the capital.
 
 // Question 2: Matching with Feedback
+// Points: 10
 Match the element to its symbol.
 [Gold] -> Au
 [Silver] -> Ag
@@ -90,215 +93,215 @@ Incorrect Feedback: You have one or more incorrect matches.
     </div>
 
     <script>
-    const createQuizBtn = document.getElementById('createQuizBtn');
-    const logEl = document.getElementById('log');
+        const createQuizBtn = document.getElementById('createQuizBtn');
+        const logEl = document.getElementById('log');
 
-    createQuizBtn.addEventListener('click', handleQuizCreation);
+        createQuizBtn.addEventListener('click', handleQuizCreation);
 
-    function logMessage(message, type = 'info') {
-        const entry = document.createElement('p');
-        entry.innerHTML = message;
-        const typeClasses = {
-            'info': 'text-gray-400', 'success': 'text-green-400', 'error': 'text-red-400', 'step': 'text-yellow-300 mt-2'
-        };
-        entry.className = `log-entry ${typeClasses[type]}`;
-        logEl.appendChild(entry);
-        logEl.scrollTop = logEl.scrollHeight;
-    }
+        function logMessage(message, type = 'info') {
+            const entry = document.createElement('p');
+            entry.innerHTML = message;
+            const typeClasses = {
+                'info': 'text-gray-400', 'success': 'text-green-400', 'error': 'text-red-400', 'step': 'text-yellow-300 mt-2'
+            };
+            entry.className = `log-entry ${typeClasses[type]}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
 
-    function parseQuizText(text) {
-        const quiz = { title: 'Untitled Quiz', description: '', questions: [] };
-        const lines = text.split('\n');
-        lines.forEach(line => {
-            if (line.trim().startsWith('// QUIZ TITLE:')) quiz.title = line.replace('// QUIZ TITLE:', '').trim();
-            else if (line.trim().startsWith('// QUIZ DESCRIPTION:')) quiz.description = line.replace('// QUIZ DESCRIPTION:', '').trim();
-        });
-
-        const questionBlocks = text.split(/\n\s*\n/).filter(block => block.trim() && !block.trim().startsWith('//'));
-
-        questionBlocks.forEach(block => {
-            const qLines = block.split('\n').filter(line => line.trim());
-            if (qLines.length === 0) return;
-
-            // --- CHANGE #1: Added default points property ---
-            const question = { text: qLines[0].trim(), points: 1, data: [], correctFeedback: '', incorrectFeedback: '' };
-            const answerLines = [];
-            
-            qLines.forEach(line => {
-                const trimmedLine = line.trim();
-                // This part is slightly rearranged to parse comments first
-                if (trimmedLine.startsWith('//')) {
-                    // --- CHANGE #2: Added block to parse points comment ---
-                    if (trimmedLine.toLowerCase().startsWith('// points:')) {
-                        question.points = parseInt(trimmedLine.substring(10).trim()) || 1;
-                    }
-                    // We can ignore other comments here
-                } else if (trimmedLine.toLowerCase().startsWith('correct feedback:')) {
-                    question.correctFeedback = trimmedLine.substring(17).trim();
-                } else if (trimmedLine.toLowerCase().startsWith('incorrect feedback:')) {
-                    question.incorrectFeedback = trimmedLine.substring(19).trim();
-                } else {
-                    answerLines.push(trimmedLine);
-                }
+        function parseQuizText(text) {
+            const quiz = { title: 'Untitled Quiz', description: '', questions: [] };
+            const lines = text.split('\n');
+            lines.forEach(line => {
+                if (line.trim().startsWith('// QUIZ TITLE:')) quiz.title = line.replace('// QUIZ TITLE:', '').trim();
+                else if (line.trim().startsWith('// QUIZ DESCRIPTION:')) quiz.description = line.replace('// QUIZ DESCRIPTION:', '').trim();
             });
 
-            if (answerLines.some(a => a.includes('->'))) {
-                question.type = 'matching_question';
-                question.data = answerLines.map((a, i) => {
-                    const parts = a.split('->');
-                    return { id: i, prompt: parts[0].trim().replace('[', '').replace(']', ''), answer: parts[1].trim() };
+            const questionBlocks = text.split(/\n\s*\n/).filter(block => block.trim() && !block.trim().startsWith('//'));
+
+            questionBlocks.forEach(block => {
+                const allLines = block.split('\n').filter(line => line.trim());
+                if (allLines.length === 0) return;
+
+                // Correctly separate the question prompt from the rest of the lines
+                const questionText = allLines[0].trim();
+                const remainingLines = allLines.slice(1);
+                
+                // Set up the question object with defaults
+                const question = { text: questionText, points: 1, data: [], correctFeedback: '', incorrectFeedback: '' };
+                const answerLines = [];
+
+                // Iterate ONLY over the remaining lines to find metadata and answers
+                remainingLines.forEach(line => {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine.toLowerCase().startsWith('// points:')) {
+                        question.points = parseInt(trimmedLine.substring(10).trim()) || 1;
+                    } else if (trimmedLine.toLowerCase().startsWith('correct feedback:')) {
+                        question.correctFeedback = trimmedLine.substring(17).trim();
+                    } else if (trimmedLine.toLowerCase().startsWith('incorrect feedback:')) {
+                        question.incorrectFeedback = trimmedLine.substring(19).trim();
+                    } else if (!trimmedLine.startsWith('//')) { // Ignore any other comments
+                        answerLines.push(trimmedLine);
+                    }
                 });
-            } else if (answerLines.some(a => a.trim().toLowerCase() === '[essay question]')) {
-                question.type = 'essay_question';
-            } else if (answerLines.some(a => a.toLowerCase().startsWith('answer:'))) {
-                question.type = 'short_answer_question';
-                const answerText = answerLines[0].substring(7).trim();
-                question.data = answerText.split('|').map(a => a.trim());
-            } else if (answerLines.some(a => a.trim().toLowerCase().includes('true') || a.trim().toLowerCase().includes('false'))) {
-                question.type = 'true_false_question';
-                question.data = answerLines.map(a => {
-                    const isCorrect = a.trim().startsWith('*');
-                    const text = a.trim().replace(/^\*/, '').replace(/^[a-b]\.?\s*/, '').trim();
-                    return { text, isCorrect };
-                });
-            } else {
-                const choices = answerLines.map(a => {
-                    const isCorrect = a.trim().startsWith('*');
-                    const text = a.trim().replace(/^\*/, '').replace(/^[a-z]\.?\s*/, '').trim();
-                    return { text, isCorrect };
-                });
-                question.type = choices.filter(c => c.isCorrect).length > 1 ? 'multiple_answers_question' : 'multiple_choice_question';
-                question.data = choices;
-            }
-            quiz.questions.push(question);
-        });
-        return quiz;
-    }
-    
-    async function handleQuizCreation() {
-        createQuizBtn.disabled = true;
-        createQuizBtn.textContent = 'Creating...';
-        logEl.innerHTML = '';
 
-        const canvasUrl = document.getElementById('canvasUrl').value.trim();
-        const courseId = document.getElementById('courseId').value.trim();
-        const apiToken = document.getElementById('apiToken').value.trim();
-
-        if (!canvasUrl || !courseId || !apiToken) {
-            logMessage('Error: Please fill in all Canvas details.', 'error');
-            createQuizBtn.disabled = false;
-            createQuizBtn.textContent = 'Create Quiz in Canvas';
-            return;
-        }
-
-        const quizText = document.getElementById('quizText').value;
-        const parsedQuiz = parseQuizText(quizText);
-
-        logMessage(`Found ${parsedQuiz.questions.length} questions. Starting process...`);
-
-        try {
-            logMessage('Step 1: Creating Quiz Shell...', 'step');
-            const quizShellData = { quiz: { title: parsedQuiz.title, description: parsedQuiz.description, quiz_type: 'assignment' }};
-            const quizResponse = await apiCall(`/api/v1/courses/${courseId}/quizzes`, 'POST', apiToken, canvasUrl, quizShellData);
-            const quizId = quizResponse.id;
-            logMessage(`Success! Quiz shell created with ID: ${quizId}`, 'success');
-
-            logMessage('Step 2: Adding questions to the quiz...', 'step');
-            for (let i = 0; i < parsedQuiz.questions.length; i++) {
-                const q = parsedQuiz.questions[i];
-                logMessage(`Creating Question ${i + 1} (${q.type}) worth ${q.points} points...`);
-                const questionPayload = buildQuestionPayload(q);
-                await apiCall(`/api/v1/courses/${courseId}/quizzes/${quizId}/questions`, 'POST', apiToken, canvasUrl, { question: questionPayload });
-                logMessage(`  -> Question ${i + 1} created successfully.`, 'success');
-            }
-
-            logMessage('------------------------------------', 'step');
-            logMessage(`🎉 All done! Your quiz is ready in Canvas.`, 'success');
-            logMessage(`View it at: <a href="${canvasUrl}/courses/${courseId}/quizzes/${quizId}" target="_blank" class="text-indigo-400 hover:underline">${canvasUrl}/courses/${courseId}/quizzes/${quizId}</a>`, 'success');
-
-        } catch (error) {
-            logMessage(`An error occurred: ${error.message}`, 'error');
-        } finally {
-            createQuizBtn.disabled = false;
-            createQuizBtn.textContent = 'Create Quiz in Canvas';
-        }
-    }
-
-    function buildQuestionPayload(question) {
-        const payload = {
-            question_name: question.text.substring(0, 50),
-            question_text: `<p>${question.text}</p>`,
-            // --- CHANGE #3: Use the points value from the parsed question ---
-            points_possible: question.points,
-            question_type: question.type,
-            answers: []
-        };
-
-        if (question.correctFeedback) payload.correct_comments_html = `<p>${question.correctFeedback}</p>`;
-        if (question.incorrectFeedback) payload.incorrect_comments_html = `<p>${question.incorrectFeedback}</p>`;
-
-        switch(question.type) {
-            case 'multiple_choice_question':
-            case 'multiple_answers_question':
-            case 'true_false_question':
-                payload.answers = question.data.map(choice => ({
-                    html: `<p>${choice.text}</p>`,
-                    weight: choice.isCorrect ? 100 : 0
-                }));
-                break;
-            case 'matching_question':
-                payload.answers = question.data.map(match => ({
-                    text: match.prompt,
-                    match_id: match.id.toString()
-                }));
-                payload.matches = question.data.map(match => ({
-                    text: match.answer,
-                    id: match.id.toString()
-                }));
-                break;
-            case 'short_answer_question':
-                 payload.answers = question.data.map(answerText => ({
-                    text: answerText,
-                    weight: 100
-                }));
-                break;
-            case 'essay_question':
-                // No answers needed
-                if (question.correctFeedback) {
-                    payload.neutral_comments_html = `<p>${question.correctFeedback}</p>`;
-                    delete payload.correct_comments_html;
+                // This question type detection logic is now correct again
+                if (answerLines.some(a => a.includes('->'))) {
+                    question.type = 'matching_question';
+                    question.data = answerLines.map((a, i) => {
+                        const parts = a.split('->');
+                        return { id: i, prompt: parts[0].trim().replace('[', '').replace(']', ''), answer: parts[1].trim() };
+                    });
+                } else if (answerLines.some(a => a.trim().toLowerCase() === '[essay question]')) {
+                    question.type = 'essay_question';
+                } else if (answerLines.some(a => a.toLowerCase().startsWith('answer:'))) {
+                    question.type = 'short_answer_question';
+                    const answerText = answerLines[0].substring(7).trim();
+                    question.data = answerText.split('|').map(a => a.trim());
+                } else if (answerLines.some(a => a.trim().toLowerCase().includes('true') || a.trim().toLowerCase().includes('false'))) {
+                    question.type = 'true_false_question';
+                    question.data = answerLines.map(a => {
+                        const isCorrect = a.trim().startsWith('*');
+                        const text = a.trim().replace(/^\*/, '').replace(/^[a-b]\.?\s*/, '').trim();
+                        return { text, isCorrect };
+                    });
+                } else {
+                    const choices = answerLines.map(a => {
+                        const isCorrect = a.trim().startsWith('*');
+                        const text = a.trim().replace(/^\*/, '').replace(/^[a-z]\.?\s*/, '').trim();
+                        return { text, isCorrect };
+                    });
+                    question.type = choices.filter(c => c.isCorrect).length > 1 ? 'multiple_answers_question' : 'multiple_choice_question';
+                    question.data = choices;
                 }
-                break;
+                quiz.questions.push(question);
+            });
+            return quiz;
         }
-        return payload;
-    }
+        
+        async function handleQuizCreation() {
+            createQuizBtn.disabled = true;
+            createQuizBtn.textContent = 'Creating...';
+            logEl.innerHTML = '';
 
-    async function apiCall(endpoint, method, token, baseUrl, body = null) {
-        const proxyUrl = '/api/proxy'; 
+            const canvasUrl = document.getElementById('canvasUrl').value.trim();
+            const courseId = document.getElementById('courseId').value.trim();
+            const apiToken = document.getElementById('apiToken').value.trim();
 
-        const response = await fetch(proxyUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                canvasUrl: baseUrl,
-                endpoint: endpoint,
-                apiToken: token,
-                method: method,
-                body: body
-            })
-        });
+            if (!canvasUrl || !courseId || !apiToken) {
+                logMessage('Error: Please fill in all Canvas details.', 'error');
+                createQuizBtn.disabled = false;
+                createQuizBtn.textContent = 'Create Quiz in Canvas';
+                return;
+            }
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Unknown error from proxy' }));
-            const errorMessage = errorData.errors?.[0]?.message || errorData.message || response.statusText;
-            throw new Error(`API Error (${response.status}): ${errorMessage}`);
+            const quizText = document.getElementById('quizText').value;
+            const parsedQuiz = parseQuizText(quizText);
+
+            logMessage(`Found ${parsedQuiz.questions.length} questions. Starting process...`);
+
+            try {
+                logMessage('Step 1: Creating Quiz Shell...', 'step');
+                const quizShellData = { quiz: { title: parsedQuiz.title, description: parsedQuiz.description, quiz_type: 'assignment' }};
+                const quizResponse = await apiCall(`/api/v1/courses/${courseId}/quizzes`, 'POST', apiToken, canvasUrl, quizShellData);
+                const quizId = quizResponse.id;
+                logMessage(`Success! Quiz shell created with ID: ${quizId}`, 'success');
+
+                logMessage('Step 2: Adding questions to the quiz...', 'step');
+                for (let i = 0; i < parsedQuiz.questions.length; i++) {
+                    const q = parsedQuiz.questions[i];
+                    logMessage(`Creating Question ${i + 1} (${q.type}) worth ${q.points} points...`);
+                    const questionPayload = buildQuestionPayload(q);
+                    await apiCall(`/api/v1/courses/${courseId}/quizzes/${quizId}/questions`, 'POST', apiToken, canvasUrl, { question: questionPayload });
+                    logMessage(`  -> Question ${i + 1} created successfully.`, 'success');
+                }
+
+                logMessage('------------------------------------', 'step');
+                logMessage(`🎉 All done! Your quiz is ready in Canvas.`, 'success');
+                logMessage(`View it at: <a href="${canvasUrl}/courses/${courseId}/quizzes/${quizId}" target="_blank" class="text-indigo-400 hover:underline">${canvasUrl}/courses/${courseId}/quizzes/${quizId}</a>`, 'success');
+
+            } catch (error) {
+                logMessage(`An error occurred: ${error.message}`, 'error');
+            } finally {
+                createQuizBtn.disabled = false;
+                createQuizBtn.textContent = 'Create Quiz in Canvas';
+            }
         }
 
-        if (response.status === 204) return { success: true };
-        return response.json();
-    }
-</script>
+        function buildQuestionPayload(question) {
+            const payload = {
+                question_name: question.text.substring(0, 50),
+                question_text: `<p>${question.text}</p>`,
+                points_possible: question.points,
+                question_type: question.type,
+                answers: []
+            };
+
+            if (question.correctFeedback) payload.correct_comments_html = `<p>${question.correctFeedback}</p>`;
+            if (question.incorrectFeedback) payload.incorrect_comments_html = `<p>${question.incorrectFeedback}</p>`;
+
+            switch(question.type) {
+                case 'multiple_choice_question':
+                case 'multiple_answers_question':
+                case 'true_false_question':
+                    payload.answers = question.data.map(choice => ({
+                        html: `<p>${choice.text}</p>`,
+                        weight: choice.isCorrect ? 100 : 0
+                    }));
+                    break;
+                case 'matching_question':
+                    payload.answers = question.data.map(match => ({
+                        text: match.prompt,
+                        match_id: match.id.toString()
+                    }));
+                    payload.matches = question.data.map(match => ({
+                        text: match.answer,
+                        id: match.id.toString()
+                    }));
+                    break;
+                case 'short_answer_question':
+                     payload.answers = question.data.map(answerText => ({
+                        text: answerText,
+                        weight: 100
+                    }));
+                    break;
+                case 'essay_question':
+                    // No a`nswers needed
+                    if (question.correctFeedback) {
+                        payload.neutral_comments_html = `<p>${question.correctFeedback}</p>`;
+                        delete payload.correct_comments_html;
+                    }
+                    break;
+            }
+            return payload;
+        }
+
+        async function apiCall(endpoint, method, token, baseUrl, body = null) {
+            const proxyUrl = '/api/proxy'; 
+
+            const response = await fetch(proxyUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    canvasUrl: baseUrl,
+                    endpoint: endpoint,
+                    apiToken: token,
+                    method: method,
+                    body: body
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error from proxy' }));
+                const errorMessage = errorData.errors?.[0]?.message || errorData.message || response.statusText;
+                throw new Error(`API Error (${response.status}): ${errorMessage}`);
+            }
+
+            if (response.status === 204) return { success: true };
+            return response.json();
+        }
+    </script>
 </body>
 </html>
