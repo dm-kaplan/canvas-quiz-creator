@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas API Quiz Creator - Advanced</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .log-entry { transition: background-color 0.3s ease; }
+        .syntax-guide { background-color: #fdfdff; border-left: 3px solid #4f46e5; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">Canvas API Quiz Creator</h1>
+            <p class="text-gray-600 mt-2">Create complex quizzes with multiple question types and feedback directly in Canvas.</p>
+        </header>
+
+        <div class="bg-white p-8 rounded-lg shadow-md space-y-8">
+            <div>
+                <h2 class="text-2xl font-semibold border-b pb-2 mb-4">Step 1: Canvas Details</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="canvasUrl" class="block text-sm font-medium text-gray-700">Canvas URL</label>
+                        <input type="text" id="canvasUrl" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" placeholder="https://yourschool.instructure.com">
+                    </div>
+                    <div>
+                        <label for="courseId" class="block text-sm font-medium text-gray-700">Course ID</label>
+                        <input type="text" id="courseId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" placeholder="e.g., 12345">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="apiToken" class="block text-sm font-medium text-gray-700">API Access Token</label>
+                        <input type="password" id="apiToken" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" placeholder="Paste your generated token here">
+                        <p class="mt-2 text-xs text-gray-500">
+                            Generate this in Canvas: Account > Settings > + New Access Token.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-2xl font-semibold border-b pb-2 mb-4">Step 2: Quiz Content & Formatting</h2>
+                <div class="syntax-guide p-4 mb-4 rounded-md text-sm text-gray-700">
+                    <h3 class="font-semibold mb-2">Formatting Guide:</h3>
+                    <ul class="list-disc list-inside space-y-1">
+                        <li>Separate questions with a blank line. Use `//` for comments.</li>
+                        <li>**Multiple Choice/Answers:** Start correct answer(s) with `*`.</li>
+                        <li>**True/False:** Use `*True` or `*False` for the correct answer.</li>
+                        <li>**Matching:** Use the format `[Prompt] -> Answer`.</li>
+                        <li>**Fill-in-the-Blank:** Use `Answer: your answer here`. For multiple correct answers, separate with `|`. E.g., `Answer: cat | feline`</li>
+                        <li>**Essay:** Write `[Essay Question]` on the line after the question prompt.</li>
+                        <li>**Feedback:** Use `Correct Feedback:` and `Incorrect Feedback:` on new lines within a question block.</li>
+                    </ul>
+                </div>
+                <textarea id="quizText" class="block w-full h-[600px] rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono p-4" placeholder="// QUIZ TITLE: Advanced Knowledge Quiz
+// QUIZ DESCRIPTION: A quiz demonstrating multiple question types and feedback.
+
+// Question 1: Multiple Choice with Feedback
+What is the capital of Canada?
+a. Toronto
+b. Vancouver
+*c. Ottawa
+Correct Feedback: That's right! Ottawa is the capital.
+Incorrect Feedback: Not quite. While Toronto is the largest city, Ottawa is the capital.
+
+// Question 2: Matching with Feedback
+Match the element to its symbol.
+[Gold] -> Au
+[Silver] -> Ag
+[Iron] -> Fe
+Correct Feedback: Excellent! You know your periodic table.
+Incorrect Feedback: You have one or more incorrect matches.
+"></textarea>
+            </div>
+
+            <div>
+                <h2 class="text-2xl font-semibold border-b pb-2 mb-4">Step 3: Create & Monitor</h2>
+                <button id="createQuizBtn" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:bg-gray-400">
+                    Create Quiz in Canvas
+                </button>
+                <div id="log" class="mt-6 bg-gray-900 text-white font-mono text-sm rounded-md p-4 h-64 overflow-y-auto">
+                    <p class="text-gray-400">Waiting to start...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const createQuizBtn = document.getElementById('createQuizBtn');
+        const logEl = document.getElementById('log');
+
+        createQuizBtn.addEventListener('click', handleQuizCreation);
+
+        function logMessage(message, type = 'info') {
+            const entry = document.createElement('p');
+            entry.innerHTML = message;
+            const typeClasses = {
+                'info': 'text-gray-400', 'success': 'text-green-400', 'error': 'text-red-400', 'step': 'text-yellow-300 mt-2'
+            };
+            entry.className = `log-entry ${typeClasses[type]}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function parseQuizText(text) {
+            const quiz = { title: 'Untitled Quiz', description: '', questions: [] };
+            const lines = text.split('\n');
+            lines.forEach(line => {
+                if (line.trim().startsWith('// QUIZ TITLE:')) quiz.title = line.replace('// QUIZ TITLE:', '').trim();
+                else if (line.trim().startsWith('// QUIZ DESCRIPTION:')) quiz.description = line.replace('// QUIZ DESCRIPTION:', '').trim();
+            });
+
+            const questionBlocks = text.split(/\n\s*\n/).filter(block => block.trim() && !block.trim().startsWith('//'));
+
+            questionBlocks.forEach(block => {
+                const qLines = block.split('\n').filter(line => line.trim() && !line.trim().startsWith('//'));
+                if (qLines.length === 0) return;
+
+                const question = { text: qLines[0].trim(), data: [], correctFeedback: '', incorrectFeedback: '' };
+                const answerLines = [];
+
+                qLines.slice(1).forEach(line => {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine.toLowerCase().startsWith('correct feedback:')) {
+                        question.correctFeedback = trimmedLine.substring(17).trim();
+                    } else if (trimmedLine.toLowerCase().startsWith('incorrect feedback:')) {
+                        question.incorrectFeedback = trimmedLine.substring(19).trim();
+                    } else {
+                        answerLines.push(trimmedLine);
+                    }
+                });
+
+                if (answerLines.some(a => a.includes('->'))) {
+                    question.type = 'matching_question';
+                    question.data = answerLines.map((a, i) => {
+                        const parts = a.split('->');
+                        return { id: i, prompt: parts[0].trim().replace('[', '').replace(']', ''), answer: parts[1].trim() };
+                    });
+                } else if (answerLines.some(a => a.trim().toLowerCase() === '[essay question]')) {
+                    question.type = 'essay_question';
+                } else if (answerLines.some(a => a.toLowerCase().startsWith('answer:'))) {
+                    question.type = 'short_answer_question';
+                    const answerText = answerLines[0].substring(7).trim();
+                    question.data = answerText.split('|').map(a => a.trim());
+                } else if (answerLines.some(a => a.trim().toLowerCase().includes('true') || a.trim().toLowerCase().includes('false'))) {
+                    question.type = 'true_false_question';
+                    question.data = answerLines.map(a => {
+                        const isCorrect = a.trim().startsWith('*');
+                        const text = a.trim().replace(/^\*/, '').replace(/^[a-b]\.?\s*/, '').trim();
+                        return { text, isCorrect };
+                    });
+                } else {
+                    const choices = answerLines.map(a => {
+                        const isCorrect = a.trim().startsWith('*');
+                        const text = a.trim().replace(/^\*/, '').replace(/^[a-z]\.?\s*/, '').trim();
+                        return { text, isCorrect };
+                    });
+                    question.type = choices.filter(c => c.isCorrect).length > 1 ? 'multiple_answers_question' : 'multiple_choice_question';
+                    question.data = choices;
+                }
+                quiz.questions.push(question);
+            });
+            return quiz;
+        }
+        
+        async function handleQuizCreation() {
+            createQuizBtn.disabled = true;
+            createQuizBtn.textContent = 'Creating...';
+            logEl.innerHTML = '';
+
+            const canvasUrl = document.getElementById('canvasUrl').value.trim();
+            const courseId = document.getElementById('courseId').value.trim();
+            const apiToken = document.getElementById('apiToken').value.trim();
+
+            if (!canvasUrl || !courseId || !apiToken) {
+                logMessage('Error: Please fill in all Canvas details.', 'error');
+                createQuizBtn.disabled = false;
+                createQuizBtn.textContent = 'Create Quiz in Canvas';
+                return;
+            }
+
+            const quizText = document.getElementById('quizText').value;
+            const parsedQuiz = parseQuizText(quizText);
+
+            logMessage(`Found ${parsedQuiz.questions.length} questions. Starting process...`);
+
+            try {
+                logMessage('Step 1: Creating Quiz Shell...', 'step');
+                const quizShellData = { quiz: { title: parsedQuiz.title, description: parsedQuiz.description, quiz_type: 'assignment' }};
+                const quizResponse = await apiCall(`/api/v1/courses/${courseId}/quizzes`, 'POST', apiToken, canvasUrl, quizShellData);
+                const quizId = quizResponse.id;
+                logMessage(`Success! Quiz shell created with ID: ${quizId}`, 'success');
+
+                logMessage('Step 2: Adding questions to the quiz...', 'step');
+                for (let i = 0; i < parsedQuiz.questions.length; i++) {
+                    const q = parsedQuiz.questions[i];
+                    logMessage(`Creating Question ${i + 1} (${q.type})...`);
+                    const questionPayload = buildQuestionPayload(q);
+                    await apiCall(`/api/v1/courses/${courseId}/quizzes/${quizId}/questions`, 'POST', apiToken, canvasUrl, { question: questionPayload });
+                    logMessage(`  -> Question ${i + 1} created successfully.`, 'success');
+                }
+
+                logMessage('------------------------------------', 'step');
+                logMessage(`🎉 All done! Your quiz is ready in Canvas.`, 'success');
+                logMessage(`View it at: <a href="${canvasUrl}/courses/${courseId}/quizzes/${quizId}" target="_blank" class="text-indigo-400 hover:underline">${canvasUrl}/courses/${courseId}/quizzes/${quizId}</a>`, 'success');
+
+            } catch (error) {
+                logMessage(`An error occurred: ${error.message}`, 'error');
+            } finally {
+                createQuizBtn.disabled = false;
+                createQuizBtn.textContent = 'Create Quiz in Canvas';
+            }
+        }
+
+        function buildQuestionPayload(question) {
+            const payload = {
+                question_name: question.text.substring(0, 50),
+                question_text: `<p>${question.text}</p>`,
+                points_possible: 1,
+                question_type: question.type,
+                answers: []
+            };
+
+            if (question.correctFeedback) payload.correct_comments_html = `<p>${question.correctFeedback}</p>`;
+            if (question.incorrectFeedback) payload.incorrect_comments_html = `<p>${question.incorrectFeedback}</p>`;
+
+            switch(question.type) {
+                case 'multiple_choice_question':
+                case 'multiple_answers_question':
+                case 'true_false_question':
+                    payload.answers = question.data.map(choice => ({
+                        html: `<p>${choice.text}</p>`,
+                        weight: choice.isCorrect ? 100 : 0
+                    }));
+                    break;
+                case 'matching_question':
+                    payload.answers = question.data.map(match => ({
+                        text: match.prompt,
+                        match_id: match.id.toString()
+                    }));
+                    payload.matches = question.data.map(match => ({
+                        text: match.answer,
+                        id: match.id.toString()
+                    }));
+                    break;
+                case 'short_answer_question':
+                     payload.answers = question.data.map(answerText => ({
+                        text: answerText,
+                        weight: 100
+                    }));
+                    break;
+                case 'essay_question':
+                    // No answers needed
+                    if (question.correctFeedback) {
+                        payload.neutral_comments_html = `<p>${question.correctFeedback}</p>`;
+                        delete payload.correct_comments_html;
+                    }
+                    break;
+            }
+            return payload;
+        }
+
+        async function apiCall(endpoint, method, token, baseUrl, body = null) {
+            const proxyUrl = '/api/proxy'; 
+
+            const response = await fetch(proxyUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    canvasUrl: baseUrl,
+                    endpoint: endpoint,
+                    apiToken: token,
+                    method: method,
+                    body: body
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error from proxy' }));
+                const errorMessage = errorData.errors?.[0]?.message || errorData.message || response.statusText;
+                throw new Error(`API Error (${response.status}): ${errorMessage}`);
+            }
+
+            if (response.status === 204) return { success: true };
+            return response.json();
+        }
+
+    </script>
+</body>
+</html>
