@@ -241,52 +241,54 @@ Incorrect Feedback: You have one or more incorrect matches.
         }
 
         function buildQuestionPayload(question) {
-            const payload = {
-                question_name: question.text.substring(0, 50),
-                question_text: `<p>${question.text}</p>`,
-                points_possible: question.points,
-                question_type: question.type,
-                answers: []
-            };
+    const payload = {
+        question_name: question.text.substring(0, 50),
+        question_text: `<p>${question.text}</p>`,
+        points_possible: question.points,
+        question_type: question.type,
+        answers: []
+    };
 
-            if (question.correctFeedback) payload.correct_comments_html = `<p>${question.correctFeedback}</p>`;
-            if (question.incorrectFeedback) payload.incorrect_comments_html = `<p>${question.incorrectFeedback}</p>`;
+    if (question.correctFeedback) payload.correct_comments_html = `<p>${question.correctFeedback}</p>`;
+    if (question.incorrectFeedback) payload.incorrect_comments_html = `<p>${question.incorrectFeedback}</p>`;
 
-            switch(question.type) {
-                case 'multiple_choice_question':
-                case 'multiple_answers_question':
-                case 'true_false_question':
-                    payload.answers = question.data.map(choice => ({
-                        html: `<p>${choice.text}</p>`,
-                        weight: choice.isCorrect ? 100 : 0
-                    }));
-                    break;
-                case 'matching_question':
-                    payload.answers = question.data.map(match => ({
-                        text: match.prompt,
-                        match_id: match.id.toString()
-                    }));
-                    payload.matches = question.data.map(match => ({
-                        text: match.answer,
-                        id: match.id.toString()
-                    }));
-                    break;
-                case 'short_answer_question':
-                     payload.answers = question.data.map(answerText => ({
-                        text: answerText,
-                        weight: 100
-                    }));
-                    break;
-                case 'essay_question':
-                    // No answers needed
-                    if (question.correctFeedback) {
-                        payload.neutral_comments_html = `<p>${question.correctFeedback}</p>`;
-                        delete payload.correct_comments_html;
-                    }
-                    break;
+    switch(question.type) {
+        case 'multiple_choice_question':
+        case 'multiple_answers_question':
+        case 'true_false_question':
+            // CORRECTED: Using the proper API key names 'answer_html' and 'answer_weight'
+            payload.answers = question.data.map(choice => ({
+                answer_html: `<p>${choice.text}</p>`,
+                answer_weight: choice.isCorrect ? 100 : 0
+            }));
+            break;
+        case 'matching_question':
+            // CORRECTED: This now correctly structures the payload for matching questions
+            payload.answers = question.data.map(match => ({
+                answer_text: match.prompt,
+                answer_match_left: match.id.toString()
+            }));
+            payload.matches = question.data.map(match => ({
+                answer_text: match.answer,
+                answer_match_right: match.id.toString()
+            }));
+            break;
+        case 'short_answer_question':
+             payload.answers = question.data.map(answerText => ({
+                answer_text: answerText,
+                answer_weight: 100
+            }));
+            break;
+        case 'essay_question':
+            // No answers needed
+            if (question.correctFeedback) {
+                payload.neutral_comments_html = `<p>${question.correctFeedback}</p>`;
+                delete payload.correct_comments_html;
             }
-            return payload;
-        }
+            break;
+    }
+    return payload;
+}
 
         async function apiCall(endpoint, method, token, baseUrl, body = null) {
             const proxyUrl = '/api/proxy'; 
