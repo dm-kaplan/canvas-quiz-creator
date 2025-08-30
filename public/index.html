@@ -213,15 +213,13 @@ Incorrect Feedback: Review the periodic table symbols and try again."></textarea
                     }));
                     break;
                 case 'matching_question':
-                    // Minimal Canvas-safe payload: no id/answer_html, just answer_text + match_id (left) and text + match_id (right)
-                    payload.answers = question.data.map((m, i) => ({
-                        answer_text: m.prompt,
-                        match_id: i + 1000
+                    // Use Canvas-documented fields for matching: answer_match_left/right
+                    // One answer object per pair; Canvas will build the dropdown from all right-side values.
+                    payload.answers = question.data.map((m) => ({
+                        answer_match_left: m.prompt,
+                        answer_match_right: m.answer
                     }));
-                    payload.matches = question.data.map((m, i) => ({
-                        text: m.answer,
-                        match_id: i + 1000
-                    }));
+                    // Do NOT send payload.matches; it's not part of the Quiz Questions API.
                     break;
                 case 'short_answer_question':
                      payload.answers = question.data.map(answerText => ({
