@@ -257,13 +257,15 @@ Incorrect Feedback: You have one or more incorrect matches.
                     }));
                     break;
                 case 'matching_question':
-                    payload.answers = question.data.map(match => ({
-                        id: match.id.toString(),
-                        answer_text: match.prompt
+                    // FINAL, DEFINITIVE FIX based on the ground truth data from the API
+                    payload.answers = question.data.map((match, i) => ({
+                        id: (i + 5000).toString(), // A unique ID for this prompt
+                        text: match.prompt, // The prompt's text
+                        match_id: i.toString() // The ID of the correct match in the other array
                     }));
-                    payload.matches = question.data.map(match => ({
-                        match_id: match.id.toString(),
-                        answer_text: match.answer
+                    payload.matches = question.data.map((match, i) => ({
+                        text: match.answer, // The answer text
+                        match_id: i.toString() // The ID that this answer corresponds to
                     }));
                     break;
                 case 'short_answer_question':
