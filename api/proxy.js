@@ -1,50 +1,47 @@
-// /api/proxy.js
+// /api/proxy.js — pass-through Canvas proxy for Vercel serverless
 
 const fetch = require('node-fetch');
 
 module.exports = async (req, res) => {
-    if (req.method !== 'POST') {
-        res.status(405).json({ error: 'Method Not Allowed' });
-        return;
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const { canvasUrl, endpoint, apiToken, method, body } = req.body || {};
+
+    if (!canvasUrl || !endpoint || !apiToken || !method) {
+      return res.status(400).json({ error: 'Missing required parameters in request body.' });
     }
 
+    // Debug: confirm keys like answer_text are present on the server
     try {
-        const { canvasUrl, endpoint, apiToken, method, body } = req.body;
+      console.log('[proxy] question keys:', Object.keys(body?.question || {}));
+      console.log('[proxy] answers keys:', (body?.question?.answers || []).map(a => Object.keys(a)));
+    } catch {}
 
-        if (!canvasUrl || !endpoint || !apiToken || !method) {
-            return res.status(400).json({ error: 'Missing required parameters in request body.' });
-        }
-        
-        const headers = {
-            'Authorization': `Bearer ${apiToken}`,
-            'Content-Type': 'application/json'
-        };
+    const resp = await fetch(`${canvasUrl}${endpoint}`, {
+      method,
+      headers: {
+        'Authorization': `Bearer ${apiToken}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
 
-        const config = {
-            method: method,
-            headers: headers,
-        };
+    const text = await resp.text();
+    let json = null;
+    try { json = JSON.parse(text); } catch {}
 
-        if (body) {
-            config.body = JSON.stringify(body);
-        }
-
-        const canvasResponse = await fetch(`${canvasUrl}${endpoint}`, config);
-
-        if (!canvasResponse.ok) {
-            const errorData = await canvasResponse.json().catch(() => ({ message: 'Failed to parse Canvas error response.' }));
-            return res.status(canvasResponse.status).json(errorData);
-        }
-
-        if (canvasResponse.status === 204) {
-            return res.status(204).send();
-        }
-
-        const data = await canvasResponse.json();
-        res.status(200).json(data);
-
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'An internal server error occurred.' });
+    if (!resp.ok) {
+      return res.status(resp.status).json(json || { message: text || 'Canvas error' });
     }
+
+    return json ? res.status(resp.status).json(json) : res.status(resp.status).end();
+  } catch (e) {
+    console.error('[proxy] error', e);
+    res.status(500).json({ error: e?.message || 'Proxy error' });
+  }
 };
