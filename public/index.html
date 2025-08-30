@@ -8,16 +8,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .log-entry { transition: background-color: 0.3s ease; }
+        .log-entry { transition: background-color 0.3s ease; }
         .syntax-guide { background-color: #fdfdff; border-left: 3px solid #4f46e5; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
-
-    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
-        <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-900">Canvas API Quiz Creator</h1>
-            <p class="text-gray-600 mt-2">Create complex quizzes with multiple question types and feedback directly in Canvas.</p>
+    <div class="max-w-6xl mx-auto py-10 px-4">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold">Canvas LMS Quiz Creator</h1>
+            <p class="text-gray-600 mt-2">Paste quiz text, set Canvas details, and import via API.</p>
         </header>
 
         <div class="bg-white p-8 rounded-lg shadow-md space-y-8">
@@ -47,17 +46,17 @@
                 <div class="syntax-guide p-4 mb-4 rounded-md text-sm text-gray-700">
                     <h3 class="font-semibold mb-2">Formatting Guide:</h3>
                     <ul class="list-disc list-inside space-y-1">
-                        <li>Separate questions with a blank line. Use `//` for comments.</li>
-                        <li>**Points:** Use `// Points: 5` on its own line within a question block.</li>
-                        <li>**Multiple Choice/Answers:** Start correct answer(s) with `*`.</li>
-                        <li>**True/False:** Use `*True` or `*False` for the correct answer.</li>
-                        <li>**Matching:** Use the format `[Prompt] -> Answer`.</li>
-                        <li>**Fill-in-the-Blank:** Use `Answer: your answer here`. For multiple correct answers, separate with `|`. E.g., `Answer: cat | feline`</li>
-                        <li>**Essay:** Write `[Essay Question]` on the line after the question prompt.</li>
-                        <li>**Feedback:** Use `Correct Feedback:` and `Incorrect Feedback:` on new lines within a question block.</li>
+                        <li>Separate questions with a blank line. Use <code>//</code> for comments.</li>
+                        <li><strong>Points:</strong> Use <code>// Points: 5</code> on its own line within a question block.</li>
+                        <li><strong>Multiple Choice/Answers:</strong> Start correct answer(s) with <code>*</code>.</li>
+                        <li><strong>True/False:</strong> Use <code>*True</code> or <code>*False</code> for the correct answer.</li>
+                        <li><strong>Matching:</strong> Use the format <code>[Prompt] -> Answer</code>.</li>
+                        <li><strong>Fill-in-the-Blank:</strong> Use <code>Answer:</code> lines; for multiple correct answers, separate with <code>|</code>.</li>
+                        <li><strong>Essay:</strong> Write <code>[Essay Question]</code> on the line after the question prompt.</li>
+                        <li><strong>Feedback:</strong> Use <code>Correct Feedback:</code> and <code>Incorrect Feedback:</code> on new lines.</li>
                     </ul>
                 </div>
-                <textarea id="quizText" class="block w-full h-[600px] rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono p-4" placeholder="// QUIZ TITLE: Advanced Knowledge Quiz
+                <textarea id="quizText" class="block w-full h-[600px] rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 font-mono p-4" placeholder="// QUIZ TITLE: Advanced Knowledge Quiz
 // QUIZ DESCRIPTION: A quiz demonstrating multiple question types and feedback.
 
 // Question 1: Multiple Choice with Feedback
@@ -75,57 +74,63 @@ Match the element to its symbol.
 [Gold] -> Au
 [Silver] -> Ag
 [Iron] -> Fe
-Correct Feedback: Excellent! You know your periodic table.
-Incorrect Feedback: You have one or more incorrect matches.
-"></textarea>
+Correct Feedback: Nice work matching element names to symbols.
+Incorrect Feedback: Review the periodic table symbols and try again."></textarea>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button id="createQuizBtn" class="px-5 py-2.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium">Create Quiz</button>
+                <button id="previewBtn" class="px-5 py-2.5 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-800">Preview Payload</button>
+                <a id="quizLink" href="#" target="_blank" class="hidden text-indigo-700 underline">Open Quiz</a>
             </div>
 
             <div>
-                <h2 class="text-2xl font-semibold border-b pb-2 mb-4">Step 3: Create & Monitor</h2>
-                <button id="createQuizBtn" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:bg-gray-400">
-                    Create Quiz in Canvas
-                </button>
-                <div id="log" class="mt-6 bg-gray-900 text-white font-mono text-sm rounded-md p-4 h-64 overflow-y-auto">
-                    <p class="text-gray-400">Waiting to start...</p>
-                </div>
+                <h2 class="text-xl font-semibold border-b pb-2 mb-3">Logs</h2>
+                <div id="log" class="bg-gray-50 border rounded-md p-3 text-sm space-y-1 h-64 overflow-auto"></div>
             </div>
         </div>
     </div>
 
     <script>
-        const createQuizBtn = document.getElementById('createQuizBtn');
         const logEl = document.getElementById('log');
+        const createQuizBtn = document.getElementById('createQuizBtn');
+        const previewBtn = document.getElementById('previewBtn');
+        const quizLinkEl = document.getElementById('quizLink');
 
-        createQuizBtn.addEventListener('click', handleQuizCreation);
-
-        function logMessage(message, type = 'info') {
-            const entry = document.createElement('p');
-            entry.innerHTML = message;
-            const typeClasses = {
-                'info': 'text-gray-400', 'success': 'text-green-400', 'error': 'text-red-400', 'step': 'text-yellow-300 mt-2'
-            };
-            entry.className = `log-entry ${typeClasses[type]}`;
+        function logMessage(msg, level = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry px-2 py-1 rounded ${level === 'error' ? 'bg-red-50 text-red-700' : level === 'success' ? 'bg-green-50 text-green-700' : level === 'step' ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-gray-700'}`;
+            entry.innerHTML = msg;
             logEl.appendChild(entry);
             logEl.scrollTop = logEl.scrollHeight;
         }
 
-        function parseQuizText(text) {
+        function parseQuizText(raw) {
+            const lines = raw.replace(/\r\n/g, '\n').split('\n');
             const quiz = { title: 'Untitled Quiz', description: '', questions: [] };
-            const lines = text.split('\n');
-            lines.forEach(line => {
-                if (line.trim().startsWith('// QUIZ TITLE:')) quiz.title = line.replace('// QUIZ TITLE:', '').trim();
-                else if (line.trim().startsWith('// QUIZ DESCRIPTION:')) quiz.description = line.replace('// QUIZ DESCRIPTION:', '').trim();
-            });
 
-            const questionBlocks = text.split(/\n\s*\n/).filter(block => block.trim());
+            // Extract metadata
+            for (let i = 0; i < lines.length; i++) {
+                const t = lines[i].trim();
+                if (t.toLowerCase().startsWith('// quiz title:')) {
+                    quiz.title = t.substring(14).trim();
+                } else if (t.toLowerCase().startsWith('// quiz description:')) {
+                    quiz.description = t.substring(20).trim();
+                }
+            }
 
-            questionBlocks.forEach(block => {
-                const allLines = block.split('\n').filter(line => line.trim());
-                if (allLines.length === 0) return;
-                
+            // Split blocks by blank lines
+            const blocks = raw.split(/\n\s*\n/g).map(b => b.trim()).filter(Boolean);
+
+            for (const block of blocks) {
+                if (block.toLowerCase().startsWith('// quiz')) continue; // skip metadata block(s)
+
+                const allLines = block.split('\n');
+                const question = { type: 'multiple_choice_question', text: '', points: 1, data: [], correctFeedback: '', incorrectFeedback: '' };
+
+                // Extract points and text
                 let questionText = '';
                 let questionTextFound = false;
-                const question = { points: 1, data: [], correctFeedback: '', incorrectFeedback: '' };
                 const answerLines = [];
 
                 allLines.forEach(line => {
@@ -148,91 +153,42 @@ Incorrect Feedback: You have one or more incorrect matches.
                         }
                     }
                 });
-                
-                if (!question.text) return; 
 
+                if (!question.text) continue;
+
+                // Determine type
                 if (answerLines.some(a => a.includes('->'))) {
+                    // Matching
                     question.type = 'matching_question';
                     question.data = answerLines.map((a, i) => {
                         const parts = a.split('->');
-                        return { id: i, prompt: parts[0].trim().replace('[', '').replace(']', ''), answer: parts[1].trim() };
+                        return { id: i, prompt: parts[0].trim().replace(/^\[/, '').replace(/\]$/, ''), answer: parts[1].trim() };
                     });
-                } else if (answerLines.some(a => a.trim().toLowerCase() === '[essay question]')) {
+                } else if (answerLines.length === 1 && /^\[(essay|Essay) Question\]/.test(answerLines[0])) {
                     question.type = 'essay_question';
-                } else if (answerLines.some(a => a.toLowerCase().startsWith('answer:'))) {
+                } else if (answerLines.length === 1 && /^answer:/i.test(answerLines[0])) {
+                    // Fill-in-the-blank → short_answer_question
                     question.type = 'short_answer_question';
-                    const answerText = answerLines[0].substring(7).trim();
-                    question.data = answerText.split('|').map(a => a.trim());
-                } else if (answerLines.some(a => a.trim().toLowerCase().includes('true') || a.trim().toLowerCase().includes('false'))) {
+                    const ansRaw = answerLines[0].split(':')[1] || '';
+                    question.data = ansRaw.split('|').map(s => s.trim()).filter(Boolean);
+                } else if (answerLines.length === 1 && (/^\*?(True|False)$/i).test(answerLines[0])) {
                     question.type = 'true_false_question';
-                    question.data = answerLines.map(a => {
-                        const isCorrect = a.trim().startsWith('*');
-                        const text = a.trim().replace(/^\*/, '').replace(/^[a-b]\.?\s*/, '').trim();
-                        return { text, isCorrect };
-                    });
+                    question.data = [{ text: 'True', isCorrect: /^\*?true$/i.test(answerLines[0]) }];
                 } else {
-                    const choices = answerLines.map(a => {
-                        const isCorrect = a.trim().startsWith('*');
-                        const text = a.trim().replace(/^\*/, '').replace(/^[a-z]\.?\s*/, '').trim();
-                        return { text, isCorrect };
-                    });
-                    question.type = choices.filter(c => c.isCorrect).length > 1 ? 'multiple_answers_question' : 'multiple_choice_question';
+                    // Multiple choice/answers
+                    const choices = answerLines
+                        .filter(Boolean)
+                        .map(l => ({ text: l.replace(/^\*/, '').replace(/^[a-d]\.\s*/i, ''), isCorrect: l.trim().startsWith('*') }));
+
+                    const correctCount = choices.filter(c => c.isCorrect).length;
+                    question.type = correctCount > 1 ? 'multiple_answers_question' : 'multiple_choice_question';
                     question.data = choices;
                 }
+
                 quiz.questions.push(question);
-            });
+            }
+
             return quiz;
-        }
-        
-        async function handleQuizCreation() {
-            createQuizBtn.disabled = true;
-            createQuizBtn.textContent = 'Creating...';
-            logEl.innerHTML = '';
-
-            const canvasUrl = document.getElementById('canvasUrl').value.trim();
-            const courseId = document.getElementById('courseId').value.trim();
-            const apiToken = document.getElementById('apiToken').value.trim();
-
-            if (!canvasUrl || !courseId || !apiToken) {
-                logMessage('Error: Please fill in all Canvas details.', 'error');
-                createQuizBtn.disabled = false;
-                createQuizBtn.textContent = 'Create Quiz in Canvas';
-                return;
-            }
-
-            const quizText = document.getElementById('quizText').value;
-            const parsedQuiz = parseQuizText(quizText);
-
-            logMessage(`Found ${parsedQuiz.questions.length} questions. Starting process...`);
-
-            try {
-                logMessage('Step 1: Creating Quiz Shell...', 'step');
-                const quizShellData = { quiz: { title: parsedQuiz.title, description: parsedQuiz.description, quiz_type: 'assignment' }};
-                const quizResponse = await apiCall(`/api/v1/courses/${courseId}/quizzes`, 'POST', apiToken, canvasUrl, quizShellData);
-                const quizId = quizResponse.id;
-                logMessage(`Success! Quiz shell created with ID: ${quizId}`, 'success');
-
-                if (parsedQuiz.questions.length > 0) {
-                    logMessage('Step 2: Adding questions to the quiz...', 'step');
-                    for (let i = 0; i < parsedQuiz.questions.length; i++) {
-                        const q = parsedQuiz.questions[i];
-                        logMessage(`Creating Question ${i + 1} (${q.type}) worth ${q.points} points...`);
-                        const questionPayload = buildQuestionPayload(q);
-                        await apiCall(`/api/v1/courses/${courseId}/quizzes/${quizId}/questions`, 'POST', apiToken, canvasUrl, { question: questionPayload });
-                        logMessage(`  -> Question ${i + 1} created successfully.`, 'success');
-                    }
-                }
-
-                logMessage('------------------------------------', 'step');
-                logMessage(`🎉 All done! Your quiz is ready in Canvas.`, 'success');
-                logMessage(`View it at: <a href="${canvasUrl}/courses/${courseId}/quizzes/${quizId}" target="_blank" class="text-indigo-400 hover:underline">${canvasUrl}/courses/${courseId}/quizzes/${quizId}</a>`, 'success');
-
-            } catch (error) {
-                logMessage(`An error occurred: ${error.message}`, 'error');
-            } finally {
-                createQuizBtn.disabled = false;
-                createQuizBtn.textContent = 'Create Quiz in Canvas';
-            }
         }
 
         function buildQuestionPayload(question) {
@@ -257,15 +213,16 @@ Incorrect Feedback: You have one or more incorrect matches.
                     }));
                     break;
                 case 'matching_question':
-                    // FINAL, DEFINITIVE FIX based on the ground truth data from the API
+                    // FIX: Canvas expects answer_text/answer_html for left-side prompts
                     payload.answers = question.data.map(match => ({
-                        id: match.id.toString(),
-                        text: match.prompt,
-                        match_id: (match.id + 1000).toString() 
+                        id: match.id,
+                        answer_text: match.prompt,
+                        answer_html: `<p>${match.prompt}</p>`,
+                        match_id: match.id + 1000
                     }));
                     payload.matches = question.data.map(match => ({
                         text: match.answer,
-                        match_id: (match.id + 1000).toString()
+                        match_id: match.id + 1000
                     }));
                     break;
                 case 'short_answer_question':
@@ -275,24 +232,102 @@ Incorrect Feedback: You have one or more incorrect matches.
                     }));
                     break;
                 case 'essay_question':
-                    // No answers needed
+                    // No answers needed; move feedback to neutral if provided
                     if (question.correctFeedback) {
                         payload.neutral_comments_html = `<p>${question.correctFeedback}</p>`;
                         delete payload.correct_comments_html;
                     }
                     break;
+                default:
+                    break;
             }
+
             return payload;
         }
 
-        async function apiCall(endpoint, method, token, baseUrl, body = null) {
-            const proxyUrl = '/api/proxy'; 
+        // Preview payload in logs
+        previewBtn.addEventListener('click', () => {
+            const quizText = document.getElementById('quizText').value;
+            const parsedQuiz = parseQuizText(quizText);
+            logMessage(`<strong>Preview:</strong> Title: ${parsedQuiz.title}; Questions: ${parsedQuiz.questions.length}`, 'step');
+            parsedQuiz.questions.forEach((q, i) => {
+                const payload = buildQuestionPayload(q);
+                logMessage(`<pre class="whitespace-pre-wrap">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`);
+                // Guardrail: warn if matching answers missing answer_text/answer_html
+                if (q.type === 'matching_question') {
+                    const bad = (payload.answers || []).some(a => !('answer_text' in a) && !('answer_html' in a));
+                    if (bad) logMessage('⚠️ Matching answer missing answer_text/answer_html', 'error');
+                }
+            });
+        });
+
+        // Create quiz flow
+        createQuizBtn.addEventListener('click', async () => {
+            const canvasUrl = document.getElementById('canvasUrl').value.trim().replace(/\/+$/, '');
+            const courseId = document.getElementById('courseId').value.trim();
+            const apiToken = document.getElementById('apiToken').value.trim();
+            const quizText = document.getElementById('quizText').value;
+
+            if (!canvasUrl || !courseId || !apiToken) {
+                logMessage('Please fill Canvas URL, Course ID, and API Token.', 'error');
+                return;
+            }
+
+            const parsedQuiz = parseQuizText(quizText);
+            logMessage(`Found ${parsedQuiz.questions.length} questions. Starting process...`);
+
+            try {
+                logMessage('Step 1: Creating Quiz Shell...', 'step');
+                const quizShellData = { quiz: { title: parsedQuiz.title, description: parsedQuiz.description, quiz_type: 'assignment' }};
+                const quizResponse = await apiCall(`/api/v1/courses/${courseId}/quizzes`, 'POST', apiToken, canvasUrl, quizShellData);
+                const quizId = quizResponse.id;
+                logMessage(`Success! Quiz shell created with ID: ${quizId}`, 'success');
+
+                if (parsedQuiz.questions.length > 0) {
+                    logMessage('Step 2: Adding questions to the quiz...', 'step');
+                    for (let i = 0; i < parsedQuiz.questions.length; i++) {
+                        const q = parsedQuiz.questions[i];
+                        logMessage(`Creating Question ${i + 1} (${q.type}) worth ${q.points} points...`);
+                        const questionPayload = buildQuestionPayload(q);
+                        await apiCall(`/api/v1/courses/${courseId}/quizzes/${quizId}/questions`, 'POST', apiToken, canvasUrl, { question: questionPayload });
+                        logMessage(`  -> Question ${i + 1} created successfully.`, 'success');
+                    }
+                }
+
+                logMessage('------------------------------------', 'step');
+                logMessage(`🎉 All done! Your quiz is ready in Canvas.`, 'success');
+                const url = `${canvasUrl}/courses/${courseId}/quizzes`;
+                quizLinkEl.href = url;
+                quizLinkEl.classList.remove('hidden');
+                quizLinkEl.textContent = 'Open Quiz List';
+                logMessage(`View it at: <a href="${url}" target="_blank">${url}</a>`, 'success');
+
+            } catch (error) {
+                logMessage(`An error occurred: ${error.message}`, 'error');
+            } finally {
+                createQuizBtn.disabled = false;
+            }
+        });
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, function(m) {
+                return ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                })[m];
+            });
+        }
+
+        // ---- API Helper via proxy route ----
+        async function apiCall(endpoint, method, token, baseUrl, body) {
+            const proxyUrl = '/api/proxy'; // Your Vercel/Next API route
 
             const response = await fetch(proxyUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     canvasUrl: baseUrl,
                     endpoint: endpoint,
