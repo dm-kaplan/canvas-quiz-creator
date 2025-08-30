@@ -213,16 +213,14 @@ Incorrect Feedback: Review the periodic table symbols and try again."></textarea
                     }));
                     break;
                 case 'matching_question':
-                    // FIX: Canvas expects answer_text/answer_html for left-side prompts
-                    payload.answers = question.data.map(match => ({
-                        id: match.id,
-                        answer_text: match.prompt,
-                        answer_html: `<p>${match.prompt}</p>`,
-                        match_id: match.id + 1000
+                    // Minimal Canvas-safe payload: no id/answer_html, just answer_text + match_id (left) and text + match_id (right)
+                    payload.answers = question.data.map((m, i) => ({
+                        answer_text: m.prompt,
+                        match_id: i + 1000
                     }));
-                    payload.matches = question.data.map(match => ({
-                        text: match.answer,
-                        match_id: match.id + 1000
+                    payload.matches = question.data.map((m, i) => ({
+                        text: m.answer,
+                        match_id: i + 1000
                     }));
                     break;
                 case 'short_answer_question':
