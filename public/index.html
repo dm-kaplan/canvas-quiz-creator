@@ -258,14 +258,14 @@ Incorrect Feedback: You have one or more incorrect matches.
                     break;
                 case 'matching_question':
                     // FINAL, DEFINITIVE FIX based on the ground truth data from the API
-                    payload.answers = question.data.map((match, i) => ({
-                        id: (i + 5000).toString(), // A unique ID for this prompt
-                        text: match.prompt, // The prompt's text
-                        match_id: i.toString() // The ID of the correct match in the other array
+                    payload.answers = question.data.map(match => ({
+                        id: match.id.toString(),
+                        text: match.prompt,
+                        match_id: (match.id + 1000).toString() 
                     }));
-                    payload.matches = question.data.map((match, i) => ({
-                        text: match.answer, // The answer text
-                        match_id: i.toString() // The ID that this answer corresponds to
+                    payload.matches = question.data.map(match => ({
+                        text: match.answer,
+                        match_id: (match.id + 1000).toString()
                     }));
                     break;
                 case 'short_answer_question':
