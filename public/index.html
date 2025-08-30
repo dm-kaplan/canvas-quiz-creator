@@ -249,12 +249,16 @@ Incorrect Feedback: Review the periodic table symbols and try again."></textarea
             parsedQuiz.questions.forEach((q, i) => {
                 const payload = buildQuestionPayload(q);
                 logMessage(`<pre class="whitespace-pre-wrap">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`);
-                // Guardrail: warn if matching answers missing answer_text/answer_html
-                if (q.type === 'matching_question') {
-                    const bad = (payload.answers || []).some(a => !('answer_text' in a) && !('answer_html' in a));
-                    if (bad) logMessage('⚠️ Matching answer missing answer_text/answer_html', 'error');
-                }
+                // Preview payload in logs
+        previewBtn.addEventListener('click', () => {
+            const quizText = document.getElementById('quizText').value;
+            const parsedQuiz = parseQuizText(quizText);
+            logMessage(`<strong>Preview:</strong> Title: ${parsedQuiz.title}; Questions: ${parsedQuiz.questions.length}`, 'step');
+            parsedQuiz.questions.forEach((q, i) => {
+                const payload = buildQuestionPayload(q);
+                logMessage(`<pre class="whitespace-pre-wrap">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`);
             });
+        });
         });
 
         // Create quiz flow
