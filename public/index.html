@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .log-entry { transition: background-color 0.3s ease; }
+        .log-entry { transition: background-color: 0.3s ease; }
         .syntax-guide { background-color: #fdfdff; border-left: 3px solid #4f46e5; }
     </style>
 </head>
@@ -236,55 +236,52 @@ Incorrect Feedback: You have one or more incorrect matches.
         }
 
         function buildQuestionPayload(question) {
-    const payload = {
-        question_name: question.text.substring(0, 50),
-        question_text: `<p>${question.text}</p>`,
-        points_possible: question.points,
-        question_type: question.type,
-        answers: []
-    };
+            const payload = {
+                question_name: question.text.substring(0, 50),
+                question_text: `<p>${question.text}</p>`,
+                points_possible: question.points,
+                question_type: question.type,
+                answers: []
+            };
 
-    if (question.correctFeedback) payload.correct_comments_html = `<p>${question.correctFeedback}</p>`;
-    if (question.incorrectFeedback) payload.incorrect_comments_html = `<p>${question.incorrectFeedback}</p>`;
+            if (question.correctFeedback) payload.correct_comments_html = `<p>${question.correctFeedback}</p>`;
+            if (question.incorrectFeedback) payload.incorrect_comments_html = `<p>${question.incorrectFeedback}</p>`;
 
-    switch(question.type) {
-        case 'multiple_choice_question':
-        case 'multiple_answers_question':
-        case 'true_false_question':
-            payload.answers = question.data.map(choice => ({
-                answer_html: `<p>${choice.text}</p>`,
-                answer_weight: choice.isCorrect ? 100 : 0
-            }));
-            break;
-        case 'matching_question':
-            // FINAL, DEFINITIVE FIX for Matching Questions based on deep API review.
-            // The `answers` array defines the left-side prompts.
-            payload.answers = question.data.map(match => ({
-                id: match.id.toString(),
-                answer_text: match.prompt
-            }));
-            // The `matches` array defines the right-side dropdown options.
-            payload.matches = question.data.map(match => ({
-                match_id: match.id.toString(),
-                answer_text: match.answer
-            }));
-            break;
-        case 'short_answer_question':
-             payload.answers = question.data.map(answerText => ({
-                answer_text: answerText,
-                answer_weight: 100
-            }));
-            break;
-        case 'essay_question':
-            // No answers needed
-            if (question.correctFeedback) {
-                payload.neutral_comments_html = `<p>${question.correctFeedback}</p>`;
-                delete payload.correct_comments_html;
+            switch(question.type) {
+                case 'multiple_choice_question':
+                case 'multiple_answers_question':
+                case 'true_false_question':
+                    payload.answers = question.data.map(choice => ({
+                        answer_html: `<p>${choice.text}</p>`,
+                        answer_weight: choice.isCorrect ? 100 : 0
+                    }));
+                    break;
+                case 'matching_question':
+                    payload.answers = question.data.map(match => ({
+                        id: match.id.toString(),
+                        answer_text: match.prompt
+                    }));
+                    payload.matches = question.data.map(match => ({
+                        match_id: match.id.toString(),
+                        answer_text: match.answer
+                    }));
+                    break;
+                case 'short_answer_question':
+                     payload.answers = question.data.map(answerText => ({
+                        answer_text: answerText,
+                        answer_weight: 100
+                    }));
+                    break;
+                case 'essay_question':
+                    // No answers needed
+                    if (question.correctFeedback) {
+                        payload.neutral_comments_html = `<p>${question.correctFeedback}</p>`;
+                        delete payload.correct_comments_html;
+                    }
+                    break;
             }
-            break;
-    }
-    return payload;
-}
+            return payload;
+        }
 
         async function apiCall(endpoint, method, token, baseUrl, body = null) {
             const proxyUrl = '/api/proxy'; 
